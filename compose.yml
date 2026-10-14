@@ -22,7 +22,7 @@ services:
       retries: 5
 
   migrator:
-    image: ghcr.io/felipegcoutinho/openmonetis-migrator:${OPENMONETIS_VERSION}
+    image: ghcr.io/pablosnascimento/openmonetis-migrator:${OPENMONETIS_VERSION}
     restart: "no"
     environment: *database-environment
     depends_on:
@@ -30,7 +30,7 @@ services:
         condition: service_healthy
 
   api:
-    image: ghcr.io/felipegcoutinho/openmonetis-api:${OPENMONETIS_VERSION}
+    image: ghcr.io/pablosnascimento/openmonetis-api:${OPENMONETIS_VERSION}
     restart: unless-stopped
     init: true
     environment:
@@ -58,7 +58,7 @@ services:
         condition: service_completed_successfully
 
   recurring-worker:
-    image: ghcr.io/felipegcoutinho/openmonetis-api:${OPENMONETIS_VERSION}
+    image: ghcr.io/pablosnascimento/openmonetis-api:${OPENMONETIS_VERSION}
     restart: unless-stopped
     init: true
     healthcheck:
@@ -74,7 +74,7 @@ services:
         condition: service_completed_successfully
 
   web:
-    image: ghcr.io/felipegcoutinho/openmonetis-web:${OPENMONETIS_VERSION}
+    image: ghcr.io/pablosnascimento/openmonetis-web:${OPENMONETIS_VERSION}
     restart: unless-stopped
     init: true
     environment:
