@@ -16,6 +16,10 @@ if [ ! -f .env ]; then
     for key in OPENMONETIS_URL BETTER_AUTH_URL WEB_URL CORS_ORIGIN; do
       sed -i "s|^${key}=.*|${key}=${origin}|" .env
     done
+
+    # O proxy do Codespace entrega a origem como localhost à API; sem isto o login falha com
+    # INVALID_ORIGIN.
+    sed -i "s|^BETTER_AUTH_TRUSTED_ORIGINS=.*|BETTER_AUTH_TRUSTED_ORIGINS=https://localhost:7002,http://localhost:7002|" .env
   fi
 fi
 
