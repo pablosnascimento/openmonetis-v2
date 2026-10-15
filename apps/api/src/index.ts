@@ -197,7 +197,15 @@ const establishmentsRoute = createEstablishmentsRoute(
   createEstablishmentsService(establishmentsRepository, logoDevGateway),
 );
 const dashboardRoute = createDashboardRoute(
-  createDashboardService(dashboardRepository, accountsService),
+  createDashboardService(dashboardRepository, accountsService, {
+    getOverview: async (userId, period) => {
+      const overview = await budgetsService.list(userId, { period });
+      return {
+        availableAmount: overview.availableAmount,
+        hasBudget: overview.items.length > 0,
+      };
+    },
+  }),
 );
 const settingsRoute = createSettingsRoute(
   createSettingsService(settingsRepository, attachmentStorage),

@@ -1,3 +1,4 @@
+import { calculateBudgetedBalance } from "@openmonetis/domain/budgets";
 import type { CardClosingRule } from "@openmonetis/domain/cards";
 import {
   applyInvoicePaymentsToDashboardForecast,
@@ -31,6 +32,7 @@ import {
   type RecurrenceFrequency,
   type TransactionType,
 } from "@openmonetis/domain/transactions";
+import { getCurrentPeriodInBrazil } from "@openmonetis/shared/date-time";
 import type { AccountOutput } from "@openmonetis/validators/accounts";
 import type {
   DashboardAccountsOutput,
@@ -454,9 +456,21 @@ function totalAccountBalance(accounts: AccountOutput[]) {
   );
 }
 
+export type DashboardBudgetsReader = {
+  getOverview(
+    userId: string,
+    period: string,
+  ): Promise<{ availableAmount: number; hasBudget: boolean }>;
+};
+
+const withoutBudgets: DashboardBudgetsReader = {
+  getOverview: async () => ({ availableAmount: 0, hasBudget: false }),
+};
+
 export function createDashboardService(
   repository: DashboardRepository,
   accountsReader: DashboardAccountsReader,
+  budgetsReader: DashboardBudgetsReader = withoutBudgets,
 ) {
   return {
     async getWidgetPreferences(userId: string): Promise<DashboardWidgetPreferencesOutput> {
@@ -552,7 +566,11 @@ export function createDashboardService(
           return request;
         },
       };
-      const snapshotService = createDashboardService(sharedRepository, sharedAccountsReader);
+      const snapshotService = createDashboardService(
+        sharedRepository,
+        sharedAccountsReader,
+        budgetsReader,
+      );
 
       const [
         metrics,
@@ -616,17 +634,43 @@ export function createDashboardService(
         adminInvoicePayments.map((payment) => ({ ...payment, amount: Number(payment.amount) })),
       );
 
+      const metrics = calculateDashboardMetrics({
+        currentAccountBalance: totalAccountBalance(currentAccounts),
+        currentPeriod: period,
+        entries,
+        previousAccountBalance: totalAccountBalance(previousAccounts),
+        previousPeriod,
+      });
+      const todayPeriod = getCurrentPeriodInBrazil();
+      const [currentBudget, previousBudget] = await Promise.all([
+        budgetsReader.getOverview(userId, period),
+        budgetsReader.getOverview(userId, previousPeriod),
+      ]);
+      const currentBudgeted = calculateBudgetedBalance({
+        ...currentBudget,
+        currentPeriod: todayPeriod,
+        period,
+        projectedBalance: metrics.projected.current,
+      });
+      const previousBudgeted = calculateBudgetedBalance({
+        ...previousBudget,
+        currentPeriod: todayPeriod,
+        period: previousPeriod,
+        projectedBalance: metrics.projected.previous,
+      });
+
       return {
         period,
         previousPeriod,
         history: calculateDashboardHistory(entries, historyPeriods),
-        ...calculateDashboardMetrics({
-          currentAccountBalance: totalAccountBalance(currentAccounts),
-          currentPeriod: period,
-          entries,
-          previousAccountBalance: totalAccountBalance(previousAccounts),
-          previousPeriod,
-        }),
+        ...metrics,
+        budgeted: {
+          current: currentBudgeted.amount,
+          hasBudget: currentBudgeted.hasBudget,
+          hasPreviousData: metrics.projected.hasPreviousData,
+          previous: previousBudgeted.amount,
+          remainingBudget: currentBudgeted.remainingBudget,
+        },
       };
     },
 

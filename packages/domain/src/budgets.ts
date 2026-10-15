@@ -248,6 +248,35 @@ export function calculateBudgetOverview(
   };
 }
 
+export type BudgetedBalance = {
+  amount: number;
+  hasBudget: boolean;
+  remainingBudget: number;
+};
+
+/**
+ * Saldo projetado: o saldo previsto menos o que ainda resta de orçamento em cada categoria.
+ * O que já foi lançado está no saldo previsto; só a folga ainda não gasta é descontada.
+ * Em períodos já encerrados não há folga a gastar, então o valor é o próprio saldo previsto.
+ */
+export function calculateBudgetedBalance(input: {
+  availableAmount: number;
+  currentPeriod: string;
+  hasBudget: boolean;
+  period: string;
+  projectedBalance: number;
+}): BudgetedBalance {
+  const isPastPeriod = input.period < input.currentPeriod;
+  const remainingBudget =
+    input.hasBudget && !isPastPeriod ? Math.max(0, roundMoney(input.availableAmount)) : 0;
+
+  return {
+    amount: roundMoney(input.projectedBalance - remainingBudget),
+    hasBudget: input.hasBudget,
+    remainingBudget,
+  };
+}
+
 export function getPreviousBudgetPeriod(period: string) {
   return addMonthsToPeriod(period, -1);
 }

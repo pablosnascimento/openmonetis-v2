@@ -7,6 +7,15 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-15
+
+Adiciona o card "Saldo projetado" à visão geral, que mostra como o mês termina se os gastos seguirem exatamente o orçado, e a configuração de Dev Container para o GitHub Codespaces.
+
+### Adicionado
+
+- Card "Saldo projetado" na visão geral: saldo previsto menos o que ainda resta de orçamento em cada categoria, para mostrar como o mês termina se os gastos seguirem exatamente o orçado. Meses encerrados usam o próprio saldo previsto, e meses sem orçamento exibem aviso. Calculado dinamicamente, sem novas tabelas nem migrations.
+- Configuração de Dev Container para desenvolvimento no GitHub Codespaces.
+
 ## [0.10.2] - 2026-10-04
 
 Corrige o vazamento de layout dos breadcrumbs e padroniza o fundo dos modais mobile,
@@ -453,7 +462,8 @@ API-first, com cliente web em PT-BR, domínio financeiro isolado e implantação
 - Backup e restauração definidos como operações de infraestrutura, cobrindo PostgreSQL, objetos do
   storage e segredos da implantação.
 
-[Unreleased]: https://github.com/felipegcoutinho/openmonetis-v2/compare/v0.10.2...HEAD
+[Unreleased]: https://github.com/pablosnascimento/openmonetis-v2/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/pablosnascimento/openmonetis-v2/compare/v0.10.2...v0.11.0
 [0.10.2]: https://github.com/felipegcoutinho/openmonetis-v2/compare/v0.10.1...v0.10.2
 [0.10.1]: https://github.com/felipegcoutinho/openmonetis-v2/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/felipegcoutinho/openmonetis-v2/compare/v0.9.0...v0.10.0
