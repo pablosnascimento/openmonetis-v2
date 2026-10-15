@@ -9,6 +9,10 @@ const metricPairSchema = z.object({
   hasPreviousData: z.boolean(),
   previous: z.number().finite(),
 });
+const budgetedMetricSchema = metricPairSchema.extend({
+  hasBudget: z.boolean(),
+  remainingBudget: z.number().finite().nonnegative(),
+});
 const dashboardHistoryEntrySchema = z.object({
   period: periodSchema,
   income: z.number().finite().nonnegative(),
@@ -61,6 +65,7 @@ export const DashboardMetricsOutputSchema = z
     expenses: metricPairSchema,
     balance: metricPairSchema,
     projected: metricPairSchema,
+    budgeted: budgetedMetricSchema,
     history: z.array(dashboardHistoryEntrySchema).length(6),
   })
   .openapi("DashboardMetrics");

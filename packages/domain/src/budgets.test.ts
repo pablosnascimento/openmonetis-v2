@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateBudgetOverview } from "./budgets";
+import { calculateBudgetedBalance, calculateBudgetOverview } from "./budgets";
 
 test("keeps category excess separate from remaining limits", () => {
   const result = calculateBudgetOverview(
@@ -54,4 +54,69 @@ test("returns no unbudgeted expenses for an empty month", () => {
   });
   assert.deepEqual(result.unbudgetedItems, []);
   assert.equal(result.unbudgetedCommittedAmount, 0);
+});
+
+test("budgeted balance subtracts the unspent budget from the projected balance", () => {
+  assert.deepEqual(
+    calculateBudgetedBalance({
+      availableAmount: 350.5,
+      currentPeriod: "2026-10",
+      hasBudget: true,
+      period: "2026-10",
+      projectedBalance: 1000,
+    }),
+    { amount: 649.5, hasBudget: true, remainingBudget: 350.5 },
+  );
+});
+
+test("budgeted balance can be negative when the budget exceeds the projected balance", () => {
+  const result = calculateBudgetedBalance({
+    availableAmount: 800,
+    currentPeriod: "2026-10",
+    hasBudget: true,
+    period: "2026-12",
+    projectedBalance: -188.49,
+  });
+
+  assert.equal(result.amount, -988.49);
+  assert.equal(result.remainingBudget, 800);
+});
+
+test("budgeted balance ignores the remaining budget of past periods", () => {
+  assert.deepEqual(
+    calculateBudgetedBalance({
+      availableAmount: 500,
+      currentPeriod: "2026-10",
+      hasBudget: true,
+      period: "2026-09",
+      projectedBalance: 120.1,
+    }),
+    { amount: 120.1, hasBudget: true, remainingBudget: 0 },
+  );
+});
+
+test("budgeted balance equals the projected balance when there is no budget", () => {
+  assert.deepEqual(
+    calculateBudgetedBalance({
+      availableAmount: 0,
+      currentPeriod: "2026-10",
+      hasBudget: false,
+      period: "2026-10",
+      projectedBalance: 42,
+    }),
+    { amount: 42, hasBudget: false, remainingBudget: 0 },
+  );
+});
+
+test("budgeted balance never adds money back when the available amount is negative", () => {
+  const result = calculateBudgetedBalance({
+    availableAmount: -50,
+    currentPeriod: "2026-10",
+    hasBudget: true,
+    period: "2026-10",
+    projectedBalance: 100,
+  });
+
+  assert.equal(result.amount, 100);
+  assert.equal(result.remainingBudget, 0);
 });

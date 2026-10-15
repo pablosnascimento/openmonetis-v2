@@ -7,6 +7,11 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Unreleased]
 
+### Adicionado
+
+- Card "Saldo projetado" na visão geral: saldo previsto menos o que ainda resta de orçamento em cada categoria, para mostrar como o mês termina se os gastos seguirem exatamente o orçado. Meses encerrados usam o próprio saldo previsto, e meses sem orçamento exibem aviso. Calculado dinamicamente, sem novas tabelas nem migrations.
+- Configuração de Dev Container para desenvolvimento no GitHub Codespaces.
+
 ## [0.10.2] - 2026-10-04
 
 Corrige o vazamento de layout dos breadcrumbs e padroniza o fundo dos modais mobile,

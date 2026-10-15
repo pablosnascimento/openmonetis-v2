@@ -53,6 +53,12 @@ export function formatProjectedMetricHelp(period: string) {
   return `Saldo das contas consideradas, incluindo somente entradas e saídas ainda pendentes até o fim de ${formattedPeriod}.`;
 }
 
+export function formatBudgetedMetricHelp(period: string) {
+  const formattedPeriod = formatDashboardPeriod(period).toLocaleLowerCase("pt-BR");
+
+  return `Saldo previsto menos o que ainda resta de orçamento em cada categoria. Mostra como você termina ${formattedPeriod} se gastar exatamente o que orçou. Categorias acima do limite não devolvem saldo, e meses encerrados usam o próprio saldo previsto.`;
+}
+
 export function getAccountBalanceShare(balance: number, totalMagnitude: number) {
   if (totalMagnitude <= 0) return 0;
   return Math.min(100, (Math.abs(balance) / totalMagnitude) * 100);

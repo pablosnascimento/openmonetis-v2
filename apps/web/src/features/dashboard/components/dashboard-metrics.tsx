@@ -5,6 +5,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarClock,
+  CalendarRange,
   CircleHelp,
   type LucideIcon,
   Minus,
@@ -20,13 +21,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
+  formatBudgetedMetricHelp,
   formatProjectedMetricHelp,
   getMetricComparison,
   type MetricTrend,
 } from "../dashboard.presentation";
 import { useAdminPersonSlug } from "../useAdminPersonSlug";
 
-type MetricKey = "balance" | "expenses" | "income" | "projected";
+type MetricKey = "balance" | "budgeted" | "expenses" | "income" | "projected";
 
 const cards: Array<{
   description: string;
@@ -74,6 +76,15 @@ const cards: Array<{
     help: "",
     icon: CalendarClock,
     iconClassName: "text-info",
+    invertTrend: false,
+  },
+  {
+    key: "budgeted",
+    label: "Saldo projetado",
+    description: "Se você gastar o que orçou até o fim do mês",
+    help: "",
+    icon: CalendarRange,
+    iconClassName: "text-brand",
     invertTrend: false,
   },
 ];
@@ -146,16 +157,21 @@ export function DashboardMetrics({ metrics }: { metrics: DashboardMetricsOutput 
               valueClassName="text-destructive"
             />
             <MobileMetric amount={metrics.balance.current} label="Resultado" />
+            <MobileMetric amount={metrics.budgeted.current} label="Saldo projetado" />
           </div>
         </CardContent>
       </Card>
 
-      <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-4">
+      <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         {cards.map((card) => {
           const metric = metrics[card.key];
           const comparison = getMetricComparison(metric.current, metric.previous);
           const help =
-            card.key === "projected" ? formatProjectedMetricHelp(metrics.period) : card.help;
+            card.key === "projected"
+              ? formatProjectedMetricHelp(metrics.period)
+              : card.key === "budgeted"
+                ? formatBudgetedMetricHelp(metrics.period)
+                : card.help;
 
           return (
             <Card className="gap-4 border py-5" key={card.key}>
@@ -192,7 +208,13 @@ export function DashboardMetrics({ metrics }: { metrics: DashboardMetricsOutput 
                     </Link>
                   ) : null}
                 </div>
-                <CardDescription className="text-xs">{card.description}</CardDescription>
+                <CardDescription className="text-xs">
+                  {card.key === "budgeted" ? (
+                    <BudgetedDescription budgeted={metrics.budgeted} />
+                  ) : (
+                    card.description
+                  )}
+                </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 px-5">
                 <MoneyValue amount={metric.current} className="font-bold text-2xl leading-none" />
@@ -209,6 +231,17 @@ export function DashboardMetrics({ metrics }: { metrics: DashboardMetricsOutput 
         })}
       </div>
     </section>
+  );
+}
+
+function BudgetedDescription({ budgeted }: { budgeted: DashboardMetricsOutput["budgeted"] }) {
+  if (!budgeted.hasBudget) return <>Sem orçamento definido neste mês</>;
+  if (budgeted.remainingBudget <= 0) return <>Orçamento já consumido neste mês</>;
+
+  return (
+    <>
+      Ainda resta orçado: <MoneyValue amount={budgeted.remainingBudget} className="text-xs" />
+    </>
   );
 }
 
@@ -312,7 +345,7 @@ export function DashboardMetricsSkeleton() {
           <Skeleton className="h-8 w-full" />
         </CardContent>
       </Card>
-      <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-4">
+      <div className="hidden gap-3 md:grid md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         {cards.map((card) => (
           <Card className="gap-5 border py-5" key={card.key}>
             <CardHeader className="px-5">
