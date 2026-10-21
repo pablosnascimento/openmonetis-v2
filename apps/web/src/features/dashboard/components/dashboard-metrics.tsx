@@ -250,8 +250,11 @@ function BudgetedDescription({ budgeted }: { budgeted: DashboardMetricsOutput["b
   if (budgeted.accumulatedBudget > 0) {
     return (
       <>
-        Orçado a gastar até aqui:{" "}
-        <MoneyValue amount={budgeted.accumulatedBudget} className="text-xs" />
+        Saldo no fim do mês se você cumprir o orçado
+        <span className="block">
+          Já desconta <MoneyValue amount={budgeted.accumulatedBudget} className="text-xs" /> de
+          orçamento ainda não gasto
+        </span>
         {missingLabel ? <span className="block">{missingLabel}</span> : null}
       </>
     );
