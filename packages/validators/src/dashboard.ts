@@ -10,7 +10,10 @@ const metricPairSchema = z.object({
   previous: z.number().finite(),
 });
 const budgetedMetricSchema = metricPairSchema.extend({
+  accumulatedBudget: z.number().finite().nonnegative(),
+  beyondHorizon: z.boolean(),
   hasBudget: z.boolean(),
+  monthsWithoutBudget: z.array(periodSchema),
   remainingBudget: z.number().finite().nonnegative(),
 });
 const dashboardHistoryEntrySchema = z.object({

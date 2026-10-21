@@ -1,4 +1,7 @@
-import { calculateBudgetedBalance } from "@openmonetis/domain/budgets";
+import {
+  calculateBudgetedBalance,
+  listBudgetedProjectionPeriods,
+} from "@openmonetis/domain/budgets";
 import type { CardClosingRule } from "@openmonetis/domain/cards";
 import {
   applyInvoicePaymentsToDashboardForecast,
@@ -642,18 +645,23 @@ export function createDashboardService(
         previousPeriod,
       });
       const todayPeriod = getCurrentPeriodInBrazil();
-      const [currentBudget, previousBudget] = await Promise.all([
-        budgetsReader.getOverview(userId, period),
-        budgetsReader.getOverview(userId, previousPeriod),
-      ]);
+      const budgetPeriods = [
+        ...new Set([...listBudgetedProjectionPeriods(todayPeriod, period), period]),
+      ];
+      const budgets = await Promise.all(
+        budgetPeriods.map(async (budgetPeriod) => ({
+          ...(await budgetsReader.getOverview(userId, budgetPeriod)),
+          period: budgetPeriod,
+        })),
+      );
       const currentBudgeted = calculateBudgetedBalance({
-        ...currentBudget,
+        budgets,
         currentPeriod: todayPeriod,
         period,
         projectedBalance: metrics.projected.current,
       });
       const previousBudgeted = calculateBudgetedBalance({
-        ...previousBudget,
+        budgets,
         currentPeriod: todayPeriod,
         period: previousPeriod,
         projectedBalance: metrics.projected.previous,
@@ -665,9 +673,12 @@ export function createDashboardService(
         history: calculateDashboardHistory(entries, historyPeriods),
         ...metrics,
         budgeted: {
+          accumulatedBudget: currentBudgeted.accumulatedBudget,
+          beyondHorizon: currentBudgeted.beyondHorizon,
           current: currentBudgeted.amount,
           hasBudget: currentBudgeted.hasBudget,
           hasPreviousData: metrics.projected.hasPreviousData,
+          monthsWithoutBudget: currentBudgeted.monthsWithoutBudget,
           previous: previousBudgeted.amount,
           remainingBudget: currentBudgeted.remainingBudget,
         },

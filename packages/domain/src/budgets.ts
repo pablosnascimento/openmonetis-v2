@@ -248,33 +248,76 @@ export function calculateBudgetOverview(
   };
 }
 
+export const budgetedProjectionHorizonMonths = 24;
+
 export type BudgetedBalance = {
+  accumulatedBudget: number;
   amount: number;
+  beyondHorizon: boolean;
   hasBudget: boolean;
+  monthsWithoutBudget: string[];
   remainingBudget: number;
 };
 
+export type MonthlyBudgetAvailability = {
+  availableAmount: number;
+  hasBudget: boolean;
+  period: string;
+};
+
 /**
- * Saldo projetado: o saldo previsto menos o que ainda resta de orçamento em cada categoria.
- * O que já foi lançado está no saldo previsto; só a folga ainda não gasta é descontada.
- * Em períodos já encerrados não há folga a gastar, então o valor é o próprio saldo previsto.
+ * Meses cujo orçamento restante entra no saldo projetado de `period`: do mês atual até ele.
+ * Vazio para meses encerrados e para meses além do horizonte de projeção.
+ */
+export function listBudgetedProjectionPeriods(currentPeriod: string, period: string): string[] {
+  if (period < currentPeriod || isBeyondProjectionHorizon(currentPeriod, period)) return [];
+
+  const periods: string[] = [];
+  for (let cursor = currentPeriod; cursor <= period; cursor = addMonthsToPeriod(cursor, 1)) {
+    periods.push(cursor);
+  }
+  return periods;
+}
+
+/**
+ * Saldo projetado: o saldo previsto do mês menos o que ainda resta de orçamento em cada categoria,
+ * somando o restante de todos os meses desde o atual (a linha é contínua). O que já foi lançado está
+ * no saldo previsto; só a folga ainda não gasta é descontada. Categoria estourada tem folga 0 e mês
+ * sem orçamento não desconta nada. Meses encerrados mostram o próprio saldo previsto.
  */
 export function calculateBudgetedBalance(input: {
-  availableAmount: number;
+  budgets: MonthlyBudgetAvailability[];
   currentPeriod: string;
-  hasBudget: boolean;
   period: string;
   projectedBalance: number;
 }): BudgetedBalance {
-  const isPastPeriod = input.period < input.currentPeriod;
-  const remainingBudget =
-    input.hasBudget && !isPastPeriod ? Math.max(0, roundMoney(input.availableAmount)) : 0;
+  const byPeriod = new Map(input.budgets.map((budget) => [budget.period, budget]));
+  const monthsWithoutBudget: string[] = [];
+  let accumulatedBudget = 0;
+
+  for (const period of listBudgetedProjectionPeriods(input.currentPeriod, input.period)) {
+    const budget = byPeriod.get(period);
+    if (budget?.hasBudget) accumulatedBudget += Math.max(0, roundMoney(budget.availableAmount));
+    else monthsWithoutBudget.push(period);
+  }
+  accumulatedBudget = roundMoney(accumulatedBudget);
+
+  const month = byPeriod.get(input.period);
+  const isCountedMonth = input.period >= input.currentPeriod;
 
   return {
-    amount: roundMoney(input.projectedBalance - remainingBudget),
-    hasBudget: input.hasBudget,
-    remainingBudget,
+    accumulatedBudget,
+    amount: roundMoney(input.projectedBalance - accumulatedBudget),
+    beyondHorizon: isBeyondProjectionHorizon(input.currentPeriod, input.period),
+    hasBudget: month?.hasBudget ?? false,
+    monthsWithoutBudget,
+    remainingBudget:
+      month?.hasBudget && isCountedMonth ? Math.max(0, roundMoney(month.availableAmount)) : 0,
   };
+}
+
+function isBeyondProjectionHorizon(currentPeriod: string, period: string) {
+  return period > addMonthsToPeriod(currentPeriod, budgetedProjectionHorizonMonths);
 }
 
 export function getPreviousBudgetPeriod(period: string) {
