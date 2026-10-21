@@ -56,7 +56,7 @@ export function formatProjectedMetricHelp(period: string) {
 export function formatBudgetedMetricHelp(period: string) {
   const formattedPeriod = formatDashboardPeriod(period).toLocaleLowerCase("pt-BR");
 
-  return `Saldo previsto menos o que ainda resta de orçamento em cada categoria. Mostra como você termina ${formattedPeriod} se gastar exatamente o que orçou. Categorias acima do limite não devolvem saldo, e meses encerrados usam o próprio saldo previsto.`;
+  return `Saldo previsto menos o que ainda resta de orçamento em cada categoria, somando o restante de todos os meses desde o atual. Mostra como você termina ${formattedPeriod} se gastar exatamente o que orçou em cada mês. Categorias acima do limite não devolvem saldo, meses sem orçamento não descontam nada e meses encerrados usam o próprio saldo previsto.`;
 }
 
 export function getAccountBalanceShare(balance: number, totalMagnitude: number) {

@@ -6,6 +6,8 @@ import {
   dashboardWidgetIds,
   normalizeDashboardWidgetPreferences,
 } from "@openmonetis/domain/dashboard";
+import { addMonthsToPeriod } from "@openmonetis/domain/transactions";
+import { getCurrentPeriodInBrazil } from "@openmonetis/shared/date-time";
 import {
   createDashboardService,
   type DashboardRecurringRuleRecord,
@@ -566,39 +568,78 @@ test("dashboard places the new goals widget after budgets in existing custom lay
   );
 });
 
-test("budgeted metric discounts the remaining budget of the selected and previous periods", async () => {
+const today = getCurrentPeriodInBrazil();
+const nextMonth = addMonthsToPeriod(today, 1);
+const monthAfterNext = addMonthsToPeriod(today, 2);
+
+test("budgeted metric of the current month discounts its remaining budget and compares with the previous month", async () => {
+  const service = createDashboardService(
+    scenarioRepository(),
+    { list: async (_userId, period) => [accountBalance(period, 1_000)] },
+    { getOverview: async () => ({ availableAmount: 300, hasBudget: true }) },
+  );
+
+  const metrics = await service.getMetrics(today, userId);
+
+  assert.equal(metrics.budgeted.current, metrics.projected.current - 300);
+  assert.equal(metrics.budgeted.previous, metrics.projected.previous);
+  assert.equal(metrics.budgeted.remainingBudget, 300);
+  assert.equal(metrics.budgeted.accumulatedBudget, 300);
+});
+
+test("budgeted metric of a future month accumulates the remaining budget of every month since today", async () => {
+  const available: Record<string, number> = {
+    [today]: 300,
+    [nextMonth]: 400,
+    [monthAfterNext]: 500,
+  };
   const service = createDashboardService(
     scenarioRepository(),
     { list: async (_userId, period) => [accountBalance(period, 1_000)] },
     {
       getOverview: async (_userId, period) => ({
-        availableAmount: period === "2099-02" ? 300 : 120,
+        availableAmount: available[period] ?? 0,
         hasBudget: true,
       }),
     },
   );
 
-  const february = await service.getMetrics("2099-02", userId);
+  const metrics = await service.getMetrics(monthAfterNext, userId);
 
-  assert.equal(february.projected.current, 1_000);
-  assert.deepEqual(february.budgeted, {
-    current: 700,
-    hasBudget: true,
-    hasPreviousData: february.projected.hasPreviousData,
-    previous: 880,
-    remainingBudget: 300,
-  });
+  assert.equal(metrics.budgeted.accumulatedBudget, 1_200);
+  assert.equal(metrics.budgeted.remainingBudget, 500);
+  assert.equal(metrics.budgeted.current, metrics.projected.current - 1_200);
+  assert.equal(metrics.budgeted.previous, metrics.projected.previous - 700);
+  assert.deepEqual(metrics.budgeted.monthsWithoutBudget, []);
 });
 
-test("budgeted metric equals the projected balance when the month has no budget", async () => {
+test("budgeted metric counts months without budget as zero and lists them", async () => {
+  const service = createDashboardService(
+    scenarioRepository(),
+    { list: async (_userId, period) => [accountBalance(period, 500)] },
+    {
+      getOverview: async (_userId, period) =>
+        period === today
+          ? { availableAmount: 200, hasBudget: true }
+          : { availableAmount: 0, hasBudget: false },
+    },
+  );
+
+  const metrics = await service.getMetrics(monthAfterNext, userId);
+
+  assert.equal(metrics.budgeted.hasBudget, false);
+  assert.equal(metrics.budgeted.accumulatedBudget, 200);
+  assert.deepEqual(metrics.budgeted.monthsWithoutBudget, [nextMonth, monthAfterNext]);
+});
+
+test("budgeted metric equals the projected balance when no budget exists", async () => {
   const service = createDashboardService(scenarioRepository(), {
     list: async (_userId, period) => [accountBalance(period, 500)],
   });
 
-  const metrics = await service.getMetrics("2099-02", userId);
+  const metrics = await service.getMetrics(today, userId);
 
   assert.equal(metrics.budgeted.hasBudget, false);
-  assert.equal(metrics.budgeted.remainingBudget, 0);
   assert.equal(metrics.budgeted.current, metrics.projected.current);
   assert.equal(metrics.budgeted.previous, metrics.projected.previous);
 });
@@ -613,5 +654,26 @@ test("budgeted metric ignores the budget of past periods", async () => {
   const metrics = await service.getMetrics("2020-01", userId);
 
   assert.equal(metrics.budgeted.remainingBudget, 0);
+  assert.equal(metrics.budgeted.accumulatedBudget, 0);
   assert.equal(metrics.budgeted.current, metrics.projected.current);
+});
+
+test("budgeted metric does not query budgets beyond the projection horizon", async () => {
+  let calls = 0;
+  const service = createDashboardService(
+    scenarioRepository(),
+    { list: async (_userId, period) => [accountBalance(period, 500)] },
+    {
+      getOverview: async () => {
+        calls += 1;
+        return { availableAmount: 400, hasBudget: true };
+      },
+    },
+  );
+
+  const metrics = await service.getMetrics("2099-02", userId);
+
+  assert.equal(metrics.budgeted.beyondHorizon, true);
+  assert.equal(metrics.budgeted.current, metrics.projected.current);
+  assert.equal(calls, 1);
 });

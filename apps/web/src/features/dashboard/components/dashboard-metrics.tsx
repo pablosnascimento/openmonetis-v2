@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import {
   formatBudgetedMetricHelp,
+  formatDashboardPeriod,
   formatProjectedMetricHelp,
   getMetricComparison,
   type MetricTrend,
@@ -235,14 +236,33 @@ export function DashboardMetrics({ metrics }: { metrics: DashboardMetricsOutput 
 }
 
 function BudgetedDescription({ budgeted }: { budgeted: DashboardMetricsOutput["budgeted"] }) {
-  if (!budgeted.hasBudget) return <>Sem orçamento definido neste mês</>;
-  if (budgeted.remainingBudget <= 0) return <>Orçamento já consumido neste mês</>;
+  if (budgeted.beyondHorizon) return <>Projeção disponível até 24 meses à frente</>;
 
-  return (
-    <>
-      Ainda resta orçado: <MoneyValue amount={budgeted.remainingBudget} className="text-xs" />
-    </>
-  );
+  const missing = budgeted.monthsWithoutBudget;
+  const missingLabel =
+    missing.length > 0
+      ? `Sem orçamento em: ${missing
+          .slice(0, 3)
+          .map((period) => formatDashboardPeriod(period, true))
+          .join(", ")}${missing.length > 3 ? "…" : ""}`
+      : null;
+
+  if (budgeted.accumulatedBudget > 0) {
+    return (
+      <>
+        Saldo no fim do mês se você cumprir o orçado
+        <span className="block">
+          Já desconta <MoneyValue amount={budgeted.accumulatedBudget} className="text-xs" /> de
+          orçamento ainda não gasto
+        </span>
+        {missingLabel ? <span className="block">{missingLabel}</span> : null}
+      </>
+    );
+  }
+  if (missingLabel) return <>{missingLabel}</>;
+  if (!budgeted.hasBudget) return <>Sem orçamento definido neste mês</>;
+
+  return <>Orçamento já consumido</>;
 }
 
 function MobileMetric({

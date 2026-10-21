@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateBudgetedBalance, calculateBudgetOverview } from "./budgets";
+import {
+  calculateBudgetedBalance,
+  calculateBudgetOverview,
+  listBudgetedProjectionPeriods,
+} from "./budgets";
 
 test("keeps category excess separate from remaining limits", () => {
   const result = calculateBudgetOverview(
@@ -56,67 +60,123 @@ test("returns no unbudgeted expenses for an empty month", () => {
   assert.equal(result.unbudgetedCommittedAmount, 0);
 });
 
-test("budgeted balance subtracts the unspent budget from the projected balance", () => {
+const month = (period: string, availableAmount: number, hasBudget = true) => ({
+  availableAmount,
+  hasBudget,
+  period,
+});
+
+test("budgeted balance of the current month subtracts only its own remaining budget", () => {
   assert.deepEqual(
     calculateBudgetedBalance({
-      availableAmount: 350.5,
+      budgets: [month("2026-10", 350.5)],
       currentPeriod: "2026-10",
-      hasBudget: true,
       period: "2026-10",
       projectedBalance: 1000,
     }),
-    { amount: 649.5, hasBudget: true, remainingBudget: 350.5 },
+    {
+      accumulatedBudget: 350.5,
+      amount: 649.5,
+      beyondHorizon: false,
+      hasBudget: true,
+      monthsWithoutBudget: [],
+      remainingBudget: 350.5,
+    },
   );
 });
 
-test("budgeted balance can be negative when the budget exceeds the projected balance", () => {
+test("budgeted balance of future months accumulates the remaining budget since the current month", () => {
+  const budgets = [month("2026-10", 300), month("2026-11", 400), month("2026-12", 400)];
+  const project = (period: string, projectedBalance: number) =>
+    calculateBudgetedBalance({ budgets, currentPeriod: "2026-10", period, projectedBalance });
+
+  assert.equal(project("2026-10", 1000).amount, 700);
+  assert.equal(project("2026-11", 1500).amount, 800);
+  assert.equal(project("2026-12", 2000).amount, 900);
+  assert.equal(project("2026-12", 2000).accumulatedBudget, 1100);
+  assert.equal(project("2026-12", 2000).remainingBudget, 400);
+});
+
+test("budgeted balance can be negative when the accumulated budget exceeds the projected balance", () => {
   const result = calculateBudgetedBalance({
-    availableAmount: 800,
+    budgets: [month("2026-10", 500), month("2026-11", 800)],
     currentPeriod: "2026-10",
-    hasBudget: true,
-    period: "2026-12",
+    period: "2026-11",
     projectedBalance: -188.49,
   });
 
-  assert.equal(result.amount, -988.49);
-  assert.equal(result.remainingBudget, 800);
+  assert.equal(result.amount, -1488.49);
 });
 
-test("budgeted balance ignores the remaining budget of past periods", () => {
+test("budgeted balance counts a month without budget as zero and lists it", () => {
+  const result = calculateBudgetedBalance({
+    budgets: [month("2026-10", 300), month("2026-11", 0, false), month("2026-12", 400)],
+    currentPeriod: "2026-10",
+    period: "2026-12",
+    projectedBalance: 2000,
+  });
+
+  assert.equal(result.accumulatedBudget, 700);
+  assert.equal(result.amount, 1300);
+  assert.deepEqual(result.monthsWithoutBudget, ["2026-11"]);
+  assert.equal(result.hasBudget, true);
+});
+
+test("budgeted balance ignores budgets of past periods", () => {
   assert.deepEqual(
     calculateBudgetedBalance({
-      availableAmount: 500,
+      budgets: [month("2026-09", 500)],
       currentPeriod: "2026-10",
-      hasBudget: true,
       period: "2026-09",
       projectedBalance: 120.1,
     }),
-    { amount: 120.1, hasBudget: true, remainingBudget: 0 },
+    {
+      accumulatedBudget: 0,
+      amount: 120.1,
+      beyondHorizon: false,
+      hasBudget: true,
+      monthsWithoutBudget: [],
+      remainingBudget: 0,
+    },
   );
 });
 
 test("budgeted balance equals the projected balance when there is no budget", () => {
-  assert.deepEqual(
-    calculateBudgetedBalance({
-      availableAmount: 0,
-      currentPeriod: "2026-10",
-      hasBudget: false,
-      period: "2026-10",
-      projectedBalance: 42,
-    }),
-    { amount: 42, hasBudget: false, remainingBudget: 0 },
-  );
+  const result = calculateBudgetedBalance({
+    budgets: [month("2026-10", 0, false)],
+    currentPeriod: "2026-10",
+    period: "2026-10",
+    projectedBalance: 42,
+  });
+
+  assert.equal(result.amount, 42);
+  assert.equal(result.hasBudget, false);
+  assert.deepEqual(result.monthsWithoutBudget, ["2026-10"]);
 });
 
 test("budgeted balance never adds money back when the available amount is negative", () => {
   const result = calculateBudgetedBalance({
-    availableAmount: -50,
+    budgets: [month("2026-10", -50)],
     currentPeriod: "2026-10",
-    hasBudget: true,
     period: "2026-10",
     projectedBalance: 100,
   });
 
   assert.equal(result.amount, 100);
   assert.equal(result.remainingBudget, 0);
+});
+
+test("budgeted balance falls back to the projected balance beyond the projection horizon", () => {
+  const far = "2030-01";
+  const result = calculateBudgetedBalance({
+    budgets: [month(far, 900)],
+    currentPeriod: "2026-10",
+    period: far,
+    projectedBalance: 5000,
+  });
+
+  assert.equal(result.beyondHorizon, true);
+  assert.equal(result.amount, 5000);
+  assert.deepEqual(listBudgetedProjectionPeriods("2026-10", far), []);
+  assert.equal(listBudgetedProjectionPeriods("2026-10", "2026-12").length, 3);
 });

@@ -7,6 +7,14 @@ O formato segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e 
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-21
+
+Faz o card "Saldo projetado" formar uma linha contínua entre os meses: cada mês desconta o orçamento restante de todos os meses desde o atual.
+
+### Alterado
+
+- Saldo projetado de um mês futuro agora é o saldo previsto daquele mês menos a soma do orçamento ainda não gasto de todos os meses, do mês atual até ele. Meses sem orçamento não descontam nada e são listados no card; meses encerrados continuam usando o saldo previsto; a projeção vai até 24 meses à frente.
+
 ## [0.11.0] - 2026-10-15
 
 Adiciona o card "Saldo projetado" à visão geral, que mostra como o mês termina se os gastos seguirem exatamente o orçado, e a configuração de Dev Container para o GitHub Codespaces.
